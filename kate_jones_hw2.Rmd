@@ -1,0 +1,204 @@
+---
+title: "Kate_Jones_HW2"
+output: pdf
+---
+**Question 1**
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+###figure out how to tidy the margins, set tidy=TRUE??
+
+library(data.table)
+library(rgdal)
+library(raster)
+library(RColorBrewer)
+
+#setwd
+setwd("C:\\Users\\The Brain\\OneDrive - North Carolina State University\\F2019 - Classes\\GIS 713\\HW\\GIS-713-HW2\\")
+
+#read in data, added .tif extension to kansas_sub file to get it to read properly
+#read landsat image in as a stack, to get all 6 bands
+kansas_sub<-raster::stack(".\\kansas_sub.tif")
+kansas_2011_cdl<-raster::raster(".\\kansas_sub_2011_CDL.tif")
+samp_pnts<-readOGR(".\\sample_points",layer="sample_points")
+
+#go ahead and reproject samp_pnts
+lat_long<-"+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+utm_proj<-"+proj=utm +zone=14 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0 "
+#define current CRS for samp_pnts
+proj4string(samp_pnts) <- CRS(lat_long)
+#then transform
+samp_pnts_utm <- spTransform(samp_pnts, CRS(utm_proj))
+
+
+#notes on ndvi:
+#NDVI= (nir-r)+(r+nir)
+#NDVI = (Band 4 – Band 3) / (Band 4 + Band 3)
+###do i need to do raster::calc() here? 
+ndvi<-(kansas_sub[[4]]-kansas_sub[[3]])/(kansas_sub[[4]]+kansas_sub[[3]])
+
+#number of pixels in cld for each crop class
+pix_table<-as.data.frame(table(getValues(kansas_2011_cdl)))
+#get crop classes that have more than 1e4 pixels
+pix_10000<-pix_table[pix_table$Freq>=10000,]
+crop_numbers<-as.character(pix_10000$Var1)
+
+#referenced from: 
+#https://www.nass.usda.gov/Research_and_Science/Cropland/
+#metadata/2017_cultivated_layer_metadata.htm
+#create a character vector (based on above crop_numbers) 
+#to more easily name box plots
+crop_names<-c("corn","sorghum","soybeans","winter wheat",
+              "alfalfa","fallow or idle cropland",
+              "pasture/grass","developed/open space",
+              "unknown_181")
+
+
+#could automate this
+
+##the variable numbers do not align with the query statements..need to fix
+ndvi_crop1<-ndvi[kansas_2011_cdl==1]
+ndvi_crop3<-ndvi[kansas_2011_cdl==4]
+ndvi_crop4<-ndvi[kansas_2011_cdl==5]
+ndvi_crop6<-ndvi[kansas_2011_cdl==24]
+ndvi_crop11<-ndvi[kansas_2011_cdl==36]
+ndvi_crop14<-ndvi[kansas_2011_cdl==61]
+ndvi_crop15<-ndvi[kansas_2011_cdl==62]
+ndvi_crop17<-ndvi[kansas_2011_cdl==121]
+ndvi_crop24<-ndvi[kansas_2011_cdl==181]
+
+#could have a database with 2 columns: crop & ndvi 
+#then would make easier to color, plot query, etc.
+###not using this for now
+# ndvi_crop<-as.data.frame(cbind(ndvi_crop1,ndvi_crop3,ndvi_crop4,ndvi_crop6,ndvi_crop11,ndvi_crop14,ndvi_crop15,ndvi_crop17,ndvi_crop24))
+
+#boxplot the results for each vector
+boxplot(ndvi_crop1,ndvi_crop3,ndvi_crop4,ndvi_crop6,
+        ndvi_crop11,ndvi_crop14,ndvi_crop15,ndvi_crop17,
+        ndvi_crop24,
+        col=brewer.pal(n = 9, name = "Set3"),
+        main = "NDVI across Multiple Crops",
+        border = "black",
+        cex.lab=.25,
+        las=3,
+        names=crop_names,
+        outcex=.4,
+        notch = TRUE
+)
+
+```
+
+## R Markdown
+```{r}
+
+#crop the ndvi layer to the smaller extent of the points
+crop_ndvi_pnts<-raster::crop(ndvi,samp_pnts_utm)
+crop_stack_pnts<-raster::crop(kansas_sub,samp_pnts_utm)
+#extract the ndvi values to the points
+pnts_vals<-raster::extract(ndvi,samp_pnts_utm)
+#cbind these values to the samp_pnts_utm
+samp_pnts_utm$ndvi<-round(pnts_vals,5)
+#how to label points within map
+
+
+# library(gridExtra)
+# library(rasterVis)
+# 
+# crop_ndvi_pnts <- rasterVis::levelplot(crop_ndvi_pnts)
+# crop_stack_pnts <- rasterVis::levelplot(crop_stack_pnts)
+# grid.arrange(crop_ndvi_pnts, crop_stack_pnts, ncol=2)
+
+par(mfrow = c(1, 2))
+qs <- quantile(raster(crop_stack_pnts, 4), c(0, 0.02, 0.98, 1))
+breaks <- unique(c(qs[1], seq(qs[2], qs[3], len=254), qs[4]))
+pal <- colorRampPalette(rev(brewer.pal(11, "Spectral")))
+
+plotRGB(crop_stack_pnts,r=5,b=4,g=3,margins=TRUE, breaks=breaks, col=pal(length(breaks) - 1),axes=TRUE, stretch="lin")
+plot(samp_pnts_utm,pch=16,cex=.25,add=T)
+text(samp_pnts_utm@coords, as.character(samp_pnts_utm$ID), 
+     cex=0.5, pos=3)
+
+qs <- quantile(raster(crop_ndvi_pnts, 5), c(-.1, 0, 0.25, .5,.75))
+breaks <- unique(c(qs[1], seq(qs[2], qs[3], len=254), qs[5]))
+pal <- colorRampPalette(rev(brewer.pal(11, "Spectral")))
+#plot(raster(crop_ndvi_pnts, 4), breaks=breaks, col=pal(length(breaks) - 1))
+
+
+plot(crop_ndvi_pnts,box=FALSE,axes=FALSE,legend=FALSE,breaks=breaks, col=pal(length(breaks) - 1), stretch="lin")
+
+plot(samp_pnts_utm,pch=16,cex=.25,add=T)
+text(samp_pnts_utm, samp_pnts_utm$ndvi, 
+     cex=0.5, pos=3)
+
+
+
+#x<-samp_pnts_utm@coords[,1]
+#y<-samp_pnts_utm@coords[,2]
+# coords<-xy.coords(samp_pnts_utm@coords)
+# #library(maptools)
+# maptools::pointLabel(coords,labels = as.character(samp_pnts_utm$ndvi), col= 2, cex = 0.5)
+
+
+
+
+
+
+```
+
+
+```{r}
+#get the x & y extent of the subset
+extent(crop_ndvi_pnts)
+#generate 1e4 random x's
+x_coords <- sample(362765.5:375426.3,10500,replace=T)
+#generate 1e4 random y's
+y_coords<-  sample(4177944.01:4187036.01,10500,replace=T)
+
+#make these coordinates into a spatial points dataframe
+coords<-cbind(x_coords,y_coords)
+points_df<-SpatialPoints(coords)
+
+#extra ndvi values at the points locations
+ndvi_at_rand<-extract(crop_ndvi_pnts,points_df)
+#make ndvi values a variable in the spatial points dataframe
+points_df$ndvi<-ndvi_at_rand
+
+proj4string(points_df) <- CRS(utm_proj)
+#then transform
+points_df_utm <- spTransform(points_df, CRS(utm_proj))
+
+#plot using spplot
+spplot(points_df_utm,"ndvi",pch=16,cex=.5)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+library(gstat)
+
+pnts_utm_10500<-points_df_utm[!is.na(points_df_utm$ndvi),]
+#pnts_utm_nd <- remove.duplicates(pnts_utm)
+x<-pnts_utm@coords[,1]
+y<-pnts_utm@coords[,2]
+pnts_utm_10500$x<-x
+pnts_utm_10500$y<-y
+
+#start with IDW
+idwmodel = idw(ndvi ~1, pnts_utm,samp_pnts_utm, maxdist = Inf, idp = 2) 
+#add idw calculations to samp_pnts_utm
+samp_pnts_utm$idw_ndvi<-idwmodel$var1.pred
+
+# calculates sample variogram values 
+vario <- variogram(log(ndvi)~1, pnts_utm_10500)  
+### need to tweak model fit, most likely?
+fit.vario <- fit.variogram(vario, model=vgm(1, "Sph", 900, 1)) # fit model
+### need to plot empirical and predicted in different colors###
+plot(vario, fit.vario ,main = "ordinary kriging")
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
