@@ -92,6 +92,7 @@ boxplot(ndvi_crop1,ndvi_crop3,ndvi_crop4,ndvi_crop6,
 ```{r,echo = FALSE}
 
 library(maptools)
+library(viridis)
 
 #crop the ndvi layer to the smaller extent of the points
 crop_ndvi_pnts<-raster::crop(ndvi,samp_pnts_utm)
@@ -103,32 +104,59 @@ samp_pnts_utm$ndvi<-round(pnts_vals,3)
 #how to label points within map
 
 
-################GET IAN's PLOTTING CODE
+# plot rasters side by side with more plotting commands
+# than i've ever wanted to know
+op<-par(no.readonly=TRUE)
+par(op)
+par(mfrow=c(1,2))
+par(yaxt="t",#remove from y
+    xaxt='t')#remove from x
 
-#creates a plot with 2 rows, 1 column
-par(mfrow = c(2, 1))
+par(oma=c(3,3,3,3),mar=c(2,1,2,1)+0.1)
 
-qs <- quantile(raster(crop_stack_pnts, 4), c(0, 0.02, 0.98, 1))
-breaks <- unique(c(qs[1], seq(qs[2], qs[3], len=254), qs[4]))
-pal <- colorRampPalette(rev(brewer.pal(11, "Spectral")))
+qs <- quantile(crop_ndvi_pnts, c(0, 0.02, 0.98, 1))
+toplot_breaks <- unique(c(qs[1], seq(qs[2], qs[3], len=254), qs[5]))
+toplot_pal<-colorRampPalette(plasma(100))
 
-plotRGB(crop_stack_pnts,r=5,b=4,g=3,margins=TRUE,axes=TRUE,cex.axis=.5,stretch="lin",main="False Color: Bands 5,4,3")#, breaks=breaks, col=pal(length(breaks) - 1),axes=TRUE, stretch="lin")
-plot(samp_pnts_utm,pch=16,cex=.25,add=T)
-maptools::pointLabel(samp_pnts_utm@coords,labels = as.character(samp_pnts_utm$ndvi), cex = 0.5)
-#text(samp_pnts_utm@coords, labels=as.character(samp_pnts_utm$ID), 
-#     cex=0.5, pos=3)
+PlotStretchLegend(crop_ndvi_pnts,toplot_breaks,toplot_pal,box=FALSE,axes=FALSE)
+mtext(text="UTM Northing",side=2,line=-.5,outer=TRUE,cex=1)
+par(tcl=1,mgp=c(1.5,.25,0))
+axis(side=2,at=c(4177944,4187036),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,cex.axis=.75)
+par(tcl=5,mgp=c(0,-.5,-1.8))
+axis(side=1,at=c(362770,375426),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,cex.axis=.75)#,line=0,inner=TRUE)
+mtext(text="UTM Easting",side=1,line=-.5,cex=1)
+mtext(text="NDVI",side=3,line=2,cex=2)
+plot(samp_pnts_utm,pch=16,cex=.5,col="white",add=T)
+maptools::pointLabel(samp_pnts_utm@coords,labels = as.character(samp_pnts_utm$ndvi), cex = 0.6,col="white")
 
-#qs <- quantile(raster(crop_ndvi_pnts, 5), c(-.1, 0, 0.25, .5,.75))
-breaks <- unique(c(qs[1], seq(qs[2], qs[3], len=254), qs[5]))
-pal <- colorRampPalette(rev(brewer.pal(11, "Spectral")))
-#plot(raster(crop_ndvi_pnts, 4), breaks=breaks, col=pal(length(breaks) - 1))
 
 
-plot(crop_ndvi_pnts,box=FALSE,axes=TRUE,legend=TRUE,main="NDVI")#,breaks=breaks, col=pal(length(breaks) - 1), stretch="lin")
-box(col = "white") 
-plot(samp_pnts_utm,pch=16,cex=.25,add=T)
-maptools::pointLabel(samp_pnts_utm@coords,labels = as.character(samp_pnts_utm$ndvi), cex = 0.5)
-#text(samp_pnts_utm@coords, as.character(samp_pnts_utm$ndvi), cex=0.5, pos=3)
+
+plotRGB(crop_stack_pnts,r=5,b=4,g=3,margins=TRUE,axes=FALSE,cex.axis=.5,stretch="lin")#,main="False Color: Bands 5,4,3")
+mtext(text="False Color: 5,4,3",side=3,line=2,cex=2)
+mtext(text="UTM Northing",side=4,line=0,outer=TRUE,cex=1)
+par(tcl=1,mgp=c(1.5,.25,0))
+axis(side=4,at=c(4177944,4187036),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,cex.axis=.75)
+par(tcl=5,mgp=c(0,-.5,-1.5))
+axis(side=1,at=c(362770,375426),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,cex.axis=.75)#,line=0,inner=TRUE)
+mtext(text="UTM Easting",side=1,line=-.5,cex=1)
+
+
+plot(samp_pnts_utm,pch=3,cex=.3,add=T)
+maptools::pointLabel(samp_pnts_utm@coords,labels = as.character(samp_pnts_utm$ndvi), cex = 0.6)
+
+
+# PlotStretchLegend <- function(r, breaks, pal, ...){
+#   # this function assumes that you've applied some sort of LINEAR CONTRAST
+#   # stretch (i.e. 2% stretch). The legend will be WRONG if you applied some
+#   # other nonlinear stretch (e.g. histogram equalization)
+#   plot(r, col=pal(length(breaks) - 1), breaks=breaks, xaxt="n", yaxt="n", legend=F, ...)
+#   # add a reasonable legend
+#   legend_at <- round(seq(breaks[2], breaks[length(breaks) - 1], len=7))
+#   legend_labels <- c(paste("<", legend_at[1]), as.character(legend_at[2:(length(legend_at) - 1)]), paste(">", legend_at[length(legend_at)]))
+#   plot(raster(matrix(legend_at[1]:legend_at[length(legend_at)])), legend.only=T, col=pal(length(breaks)-1), axis.args=list(at=legend_at, labels=legend_labels))
+# }
+
 
 ```
 
@@ -184,52 +212,53 @@ idwmodel = gstat::idw(ndvi ~1, pnts_utm_nona,samp_pnts_utm, maxdist = Inf)#, idp
 #add idw calculations to samp_pnts_utm
 samp_pnts_utm$idw_ndvi<-idwmodel$var1.pred
 samp_idw_acc<-forecast::accuracy(samp_pnts_utm$ndvi,samp_pnts_utm$idw_ndvi)
+plot_idw_acc<-samp_idw_acc[c(1:length(samp_idw_acc))]
 
 # calculates sample variogram values 
 vario <- variogram((ndvi)~1, pnts_utm_nona)
-#check out which model is best? ###why doesn't this work??
-library(automap)
+
 #returns spherical??
-which.model<-autofitVariogram(formula=(ndvi~1),input_data=pnts_utm_nona,model=c("Exp","Sph","Gau"))
-#didn't use the below line of code
-#test.vario <- fit.variogram(vario, vgm(c("Exp","Sph","Gau")))
+#try this one instead of autofit
+test.fits<-fit.variogram(vario, vgm(c("Exp", "Mat", "Sph")))
+
 ### need to tweak model fit, most likely?
-fit.vario <- fit.variogram(vario, model=vgm(.035, "Sph", 935,0.0002))#, 1)) # fit model
+fit.vario <- fit.variogram(vario, model=vgm(fit.vario$psill[2], "Sph", fit.vario$range[2],fit.vario$psill[1]))#, 1)) # fit model
 ### plot empirical vs. model
 plot(vario, fit.vario ,main = "ordinary kriging")
 
 #annotating the variogram....
 annotated_plot<-
         plot(vario,model=fit.vario,lwd=2,col.line="black",pch=16,cex=0.5,ylim=c(0,.04),
-                     xlim=c(0,4000),
-                     main=list(
-                          "Spherical Semivariogram Model for NDVI Predictions",
+             xlim=c(0,4000),
+             main=list(
+                     "Spherical Semivariogram Model for NDVI Predictions",
                      xlab=list("Distance between Point Pairs (m)"),cex=1 ),
-                     ylab=list("Semivariance"),
-                     scales=list(x=list(at=c(0,1000,2000,3000,4000),
-                                        labels=c(0,1000,2000,3000,4000)),
-                     y=list(at=c(0,0.05,.01,.015,.02,.025,.03,.035,.04),
-                            #keep getting NA after last label
-                            labels=c(0,"",.015,"",.025,"",.035,"",.045)),cex=1),
-                     key=
+             ylab=list("Semivariance"),
+             scales=list(x=list(at=c(0,1000,2000,3000,4000),
+                                labels=c(0,1000,2000,3000,4000)),
+                         y=list(at=c(0,0.05,.01,.015,.02,.025,.03,.035,.04),
+                                #keep getting NA after last label
+                                labels=c(0,"",.015,"",.025,"",.035,"",.045)),cex=1),
+             key=
                      list(text=list(lab=c("Spherical Model","Sill",
                                           "Maximum Interpolation Distance")),
-                     space="top",lines=list(col=c("black","black","red"),
-                                        lwd=2,lty=c(1,2,1)),columns=3,cex=.75))
+                          space="top",lines=list(col=c("black","black","red"),
+                                                 lwd=2,lty=c(1,2,1)),columns=3,cex=.75))
 
 #use trellis so the plot doesn't close
 plot(annotated_plot)
 lattice::trellis.focus("panel",1,1)
 plot(annotated_plot)
 lattice::trellis.focus("panel",1,1)
-#should automate these lines to extract from the model values for plotting...
-llines(x=c(925,925),y=c(0,.035),col="red",lwd=2,lty=1)
-llines(x=c(0,925),y=c(.035,.035),col="red",lwd=2,lty=1)
-llines(x=c(0,925),y=c(fit.vario$psill[2]+fit.vario$psill[1],fit.vario$psill[2]+fit.vario$psill[1]),col="black",lty=2,lwd=2)
-ltext(x=500,y=.005*.75,"Nuggest ~ 0.0002",cex=.75)
+###should automate these lines to extract from the model values for plotting...
+llines(x=c(fit.vario$range[2],fit.vario$range[2]),y=c(0,fit.vario$psill[2]),col="red",lwd=2,lty=1)
+#llines(x=c(0,925),y=c(.035,.035),col="red",lwd=2,lty=1)
+llines(x=c(0,fit.vario$range[2]),y=c(fit.vario$psill[2]+fit.vario$psill[1],fit.vario$psill[2]+fit.vario$psill[1]),col="black",lty=2,lwd=2)
+ltext(x=500,y=.005*.75,paste("Nugget ~",round(fit.vario$psill[1],3),sep=""),cex=.75)
+ltext(x=fit.vario$range[2]+50,y=.015,paste("Range ~",round(fit.vario$range[2],0),sep=""),cex=.75,srt=90)
 trellis.unfocus()
 
-                     
+
 #create blank grid 
 blank.grid<-spsample(samp_pnts_utm,type="regular",n=10000)
 
@@ -264,10 +293,26 @@ krig_ndvi_atsamps<-raster::extract(raster_krig,samp_pnts_utm)
 samp_pnts_utm$krig_ndvi<-krig_ndvi_atsamps
 
 samp_krig_acc<-forecast::accuracy(samp_pnts_utm$ndvi,samp_pnts_utm$krig_ndvi)
-##interesting, RMSE barely improves with 1000 grid
+
+
+plot_krig_acc<-samp_krig_acc[c(1:length(samp_krig_acc))]
 
 ####Need to answer in more depth the last questions
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r, echo=FALSE}
+#error_names<-c("ME","RMSE","MAE","MPE","MAPE")
+plot(plot_idw_acc,col="blue",cex=2,ylab="Error Values",xaxt='n')
+mtext(text="ME                     RMSE                       MAE                    MPE                        MAPE",side=1,line=0,cex=1)     
+points(plot_krig_acc,col="red",pch=8)
+mtext(text="Error Metrics",side=1,line=2,cex=1)
+
+par(mfrow=c(1,2))
+####fit a slope line to these
+plot(samp_pnts_utm$idw_ndvi,samp_pnts_utm$ndvi)
+
+plot(samp_pnts_utm$krig_ndvi,samp_pnts_utm$ndvi)
+
+```
