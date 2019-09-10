@@ -1,6 +1,7 @@
 ---
 title: "Kate_Jones_HW2"
-output: pdf
+output:
+  pdf_document: default
 ---
 **Question 1**
 ```{r setup, include=FALSE,echo = FALSE}
@@ -179,7 +180,7 @@ pnts_utm_nona$y<-y
 blank.grid<-spsample(samp_pnts_utm,type="regular",n=10000)
 
 #start with IDW, power of 1
-idwmodel = idw(ndvi ~1, pnts_utm_nona,samp_pnts_utm, maxdist = Inf)#, idp = 2) 
+idwmodel = gstat::idw(ndvi ~1, pnts_utm_nona,samp_pnts_utm, maxdist = Inf)#, idp = 2) 
 #add idw calculations to samp_pnts_utm
 samp_pnts_utm$idw_ndvi<-idwmodel$var1.pred
 samp_idw_acc<-forecast::accuracy(samp_pnts_utm$ndvi,samp_pnts_utm$idw_ndvi)
@@ -187,37 +188,45 @@ samp_idw_acc<-forecast::accuracy(samp_pnts_utm$ndvi,samp_pnts_utm$idw_ndvi)
 # calculates sample variogram values 
 vario <- variogram((ndvi)~1, pnts_utm_nona)
 #check out which model is best? ###why doesn't this work??
-test.vario <- fit.variogram(vario, vgm(c("Exp","Sph","Gau")))
+library(automap)
+#returns spherical??
+which.model<-autofitVariogram(formula=(ndvi~1),input_data=pnts_utm_nona,model=c("Exp","Sph","Gau"))
+#didn't use the below line of code
+#test.vario <- fit.variogram(vario, vgm(c("Exp","Sph","Gau")))
 ### need to tweak model fit, most likely?
-fit.vario <- fit.variogram(vario, model=vgm(.5, "Sph", 700))#, 1)) # fit model
+fit.vario <- fit.variogram(vario, model=vgm(.035, "Sph", 935,0.0002))#, 1)) # fit model
 ### plot empirical vs. model
 plot(vario, fit.vario ,main = "ordinary kriging")
 
 #annotating the variogram....
 annotated_plot<-
-        plot(vario,model=fit.vario,lwd=2,col.line="black",pch=16,cex=0.5,ylim=c(0,.5),
-                     xlim=c(0,5000),
-                     main=list("Spherical Semivariogram Model for NDVI Predictions",
-                     xlab=list("Distance between Point Pairs (m)"),cex=2 ),
+        plot(vario,model=fit.vario,lwd=2,col.line="black",pch=16,cex=0.5,ylim=c(0,.04),
+                     xlim=c(0,4000),
+                     main=list(
+                          "Spherical Semivariogram Model for NDVI Predictions",
+                     xlab=list("Distance between Point Pairs (m)"),cex=1 ),
                      ylab=list("Semivariance"),
-                     scales=list(x=list(at=c(0,100,500,1000,5000),
-                                        labels=c(0,100,500,1000,5000)),
-                     y=list(at=c(0,0.5,.1,.15,.2,.25,.3),
-                            labels=c(0,"",.15,"",.25,"")),cex=2),
+                     scales=list(x=list(at=c(0,1000,2000,3000,4000),
+                                        labels=c(0,1000,2000,3000,4000)),
+                     y=list(at=c(0,0.05,.01,.015,.02,.025,.03,.035,.04),
+                            #keep getting NA after last label
+                            labels=c(0,"",.015,"",.025,"",.035,"",.045)),cex=1),
                      key=
-                     list(text=list(lab=c("Spherical Model","Sill","Maximum Interpolation                            Distance")),
+                     list(text=list(lab=c("Spherical Model","Sill",
+                                          "Maximum Interpolation Distance")),
                      space="top",lines=list(col=c("black","black","red"),
-                                            lwd=2,lty=c(1,2,1)),columns=3,cex=1.5))
+                                        lwd=2,lty=c(1,2,1)),columns=3,cex=.75))
 
 #use trellis so the plot doesn't close
 plot(annotated_plot)
 lattice::trellis.focus("panel",1,1)
 plot(annotated_plot)
 lattice::trellis.focus("panel",1,1)
-llines(x=c(500,500),y=c(0,.5),col="red",lwd=2,lty=1)
-llines(x=c(0,500),y=c(.5,.5),col="red",lwd=2,lty=1)
-llines(x=c(0,500),y=c(fit.vario$psill[2]+fit.vario$psill[1],fit.vario$psill[2]+fit.vario[1]),col="black",lty=2,lwd=2)
-ltext(x=12,y=5,"Nuggest~ unk",cex=1.5)
+#should automate these lines to extract from the model values for plotting...
+llines(x=c(925,925),y=c(0,.035),col="red",lwd=2,lty=1)
+llines(x=c(0,925),y=c(.035,.035),col="red",lwd=2,lty=1)
+llines(x=c(0,925),y=c(fit.vario$psill[2]+fit.vario$psill[1],fit.vario$psill[2]+fit.vario$psill[1]),col="black",lty=2,lwd=2)
+ltext(x=500,y=.005*.75,"Nuggest ~ 0.0002",cex=.75)
 trellis.unfocus()
 
                      
