@@ -1,11 +1,15 @@
 ---
-title: "Kate_Jones_HW2"
+title: "GIS 713 - HW2"
+author: Kate Jones
+date: 09/12/2019
 output:
   pdf_document: default
 ---
 **Question 1**
-```{r setup, include=FALSE,echo = FALSE}
+```{r setup, include=FALSE,echo = FALSE, warning = FALSE, message = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(error = TRUE)
+knitr::opts_chunk$set(tidy = FALSE)
 
 ###figure out how to tidy the margins, set tidy=TRUE??
 
@@ -15,7 +19,7 @@ library(raster)
 library(RColorBrewer)
 
 #setwd
-setwd("C:\\Users\\The Brain\\OneDrive - North Carolina State University\\F2019 - Classes\\GIS 713\\HW\\GIS-713-HW2\\")
+#setwd("C:\\Users\\The Brain\\OneDrive - North Carolina State University\\F2019 - Classes\\GIS 713\\HW\\GIS-713-HW2\\")
 
 #read in data, added .tif extension to kansas_sub file to get it to read properly
 #read landsat image in as a stack, to get all 6 bands
@@ -68,23 +72,37 @@ ndvi_crop15<-ndvi[kansas_2011_cdl==62]
 ndvi_crop17<-ndvi[kansas_2011_cdl==121]
 ndvi_crop24<-ndvi[kansas_2011_cdl==181]
 
-#boxplot the results for each vector
+#boxplot the results for each CLD vector
 plot.new()
 boxplot(ndvi_crop1,ndvi_crop3,ndvi_crop4,ndvi_crop6,
         ndvi_crop11,ndvi_crop14,ndvi_crop15,ndvi_crop17,
         ndvi_crop24,
+        xaxt="n",
         col=brewer.pal(n = 9, name = "Set3"),
         main = "NDVI across Multiple Crops",
         border = "black",
-        cex.lab=.75,
-        cex.axis=.5,
-        xlab="CLD type",
+        cex.lab=1,
+        cex.axis=.75,
         ylab="NDVI",
         las=3,
         names=crop_names,
         outcex=.4,
         notch = TRUE
-)
+
+        )
+
+#add custom x-axis title, move further away from plot than standard
+mtext(text="CLD Type",side=1,line=4,cex=1)
+
+# plot x axis labels using:
+# par("usr")[3] - 0.5 as the vertical placement
+# srt = 45 as text rotation angle
+# adj = 1 to place right end of text at tick mark
+# xpd = TRUE to allow for text outside the plot region
+labs <- crop_names
+text(1:9, par("usr")[1] - .5, srt = 25, adj = 1,
+     labels = labs, xpd = TRUE,cex=.75)
+
 
 ```
 
@@ -112,13 +130,29 @@ par(mfrow=c(1,2))
 par(yaxt="t",#remove from y
     xaxt='t')#remove from x
 
+#customize the plotting parameters so things will fit in the same window
 par(oma=c(3,3,3,3),mar=c(2,1,2,1)+0.1)
 
+#query the "stats" for the stretched legend
 qs <- quantile(crop_ndvi_pnts, c(0, 0.02, 0.98, 1))
 toplot_breaks <- unique(c(qs[1], seq(qs[2], qs[3], len=254), qs[5]))
 toplot_pal<-colorRampPalette(plasma(100))
 
+#function for plotting stretched legends
+PlotStretchLegend <- function(r, breaks, pal, ...){
+  # this function assumes that you've applied some sort of LINEAR CONTRAST
+  # stretch (i.e. 2% stretch). The legend will be WRONG if you applied some
+  # other nonlinear stretch (e.g. histogram equalization)
+  plot(r, col=pal(length(breaks) - 1), breaks=breaks, xaxt="n", yaxt="n", legend=F, ...)
+  # add a reasonable legend
+  legend_at <- round(seq(breaks[2], breaks[length(breaks) - 1], len=7))
+  legend_labels <- c(paste("<", legend_at[1]), as.character(legend_at[2:(length(legend_at) - 1)]), paste(">", legend_at[length(legend_at)]))
+  plot(raster(matrix(legend_at[1]:legend_at[length(legend_at)])), legend.only=T, col=pal(length(breaks)-1), axis.args=list(at=legend_at, labels=legend_labels))
+}
+
+#plot the NDVI image using the function
 PlotStretchLegend(crop_ndvi_pnts,toplot_breaks,toplot_pal,box=FALSE,axes=FALSE)
+#add lots of custom text such that the plots will fit in the same window with some semblance of labeling & titles
 mtext(text="UTM Northing",side=2,line=-.5,outer=TRUE,cex=1)
 par(tcl=1,mgp=c(1.5,.25,0))
 axis(side=2,at=c(4177944,4187036),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,cex.axis=.75)
@@ -126,13 +160,14 @@ par(tcl=5,mgp=c(0,-.5,-1.8))
 axis(side=1,at=c(362770,375426),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,cex.axis=.75)#,line=0,inner=TRUE)
 mtext(text="UTM Easting",side=1,line=-.5,cex=1)
 mtext(text="NDVI",side=3,line=2,cex=2)
+#add the points w/ NDVI values on the raster
 plot(samp_pnts_utm,pch=16,cex=.5,col="white",add=T)
+#used package maptools to attempt to "organize" the labelling...not really successful...
 maptools::pointLabel(samp_pnts_utm@coords,labels = as.character(samp_pnts_utm$ndvi), cex = 0.6,col="white")
 
-
-
-
-plotRGB(crop_stack_pnts,r=5,b=4,g=3,margins=TRUE,axes=FALSE,cex.axis=.5,stretch="lin")#,main="False Color: Bands 5,4,3")
+#plot the RGB false color image, linear stretch for contrast
+plotRGB(crop_stack_pnts,r=5,b=4,g=3,margins=TRUE,axes=FALSE,cex.axis=.5,stretch="lin")
+#add custom axis, text/titles, & ticks so things fit 
 mtext(text="False Color: 5,4,3",side=3,line=2,cex=2)
 mtext(text="UTM Northing",side=4,line=0,outer=TRUE,cex=1)
 par(tcl=1,mgp=c(1.5,.25,0))
@@ -140,22 +175,10 @@ axis(side=4,at=c(4177944,4187036),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,
 par(tcl=5,mgp=c(0,-.5,-1.5))
 axis(side=1,at=c(362770,375426),lwd=.25,lwd.ticks=.25,col.ticks="black",las=2,cex.axis=.75)#,line=0,inner=TRUE)
 mtext(text="UTM Easting",side=1,line=-.5,cex=1)
-
-
+#add the points w/ ID' values's on the raster
 plot(samp_pnts_utm,pch=3,cex=.3,add=T)
+#used package maptools to attempt to "organize" the labelling...not really successful...
 maptools::pointLabel(samp_pnts_utm@coords,labels = as.character(samp_pnts_utm$ndvi), cex = 0.6)
-
-
-# PlotStretchLegend <- function(r, breaks, pal, ...){
-#   # this function assumes that you've applied some sort of LINEAR CONTRAST
-#   # stretch (i.e. 2% stretch). The legend will be WRONG if you applied some
-#   # other nonlinear stretch (e.g. histogram equalization)
-#   plot(r, col=pal(length(breaks) - 1), breaks=breaks, xaxt="n", yaxt="n", legend=F, ...)
-#   # add a reasonable legend
-#   legend_at <- round(seq(breaks[2], breaks[length(breaks) - 1], len=7))
-#   legend_labels <- c(paste("<", legend_at[1]), as.character(legend_at[2:(length(legend_at) - 1)]), paste(">", legend_at[length(legend_at)]))
-#   plot(raster(matrix(legend_at[1]:legend_at[length(legend_at)])), legend.only=T, col=pal(length(breaks)-1), axis.args=list(at=legend_at, labels=legend_labels))
-# }
 
 
 ```
@@ -178,6 +201,7 @@ ndvi_at_rand<-extract(crop_ndvi_pnts,points_df)
 #make ndvi values a variable in the spatial points dataframe
 points_df$ndvi<-ndvi_at_rand
 
+#reiterate proj4/CRS, never hurts
 proj4string(points_df) <- CRS(utm_proj)
 #then transform
 points_df_utm <- spTransform(points_df, CRS(utm_proj))
@@ -186,80 +210,99 @@ points_df_utm <- spTransform(points_df, CRS(utm_proj))
 spplot(points_df_utm,"ndvi",pch=16,cex=.5)
 
 ```
+Generated 10,000 random points within the extent of the 44 sample points. Extracted values from NDVI raster to give points NDVI values.
 
-
-```{r , echo = FALSE}
+```{r , echo = FALSE,cache=TRUE}
 library(gstat)
 library(spatstat)
 library(Metrics)
 library(geoR)
-library(lattice)
-library(latticeExtra)
-library(forecast)
+library(lattice) #for annotating plot 
+library(latticeExtra)#ditto, not sure if it's necessary
+library(forecast)#for reporting some of the error statistics
 
+#random generation of points and extraction of values was sometimes resulting in NA's
+#clean those out
 pnts_utm_nona<-points_df_utm[!is.na(points_df_utm$ndvi),]
-#pnts_utm_nd <- remove.duplicates(pnts_utm)
+
+#get the x & y values of the random points
 x<-pnts_utm_nona@coords[,1]
 y<-pnts_utm_nona@coords[,2]
 pnts_utm_nona$x<-x
 pnts_utm_nona$y<-y
 
-#create blank grid 
-blank.grid<-spsample(samp_pnts_utm,type="regular",n=10000)
+#create blank grid to interpolate to
+blank.grid<-as.data.frame(spsample(samp_pnts_utm,type="regular",n=10000))
+names(blank.grid)       <- c("X", "Y")
+coordinates(blank.grid) <- c("X", "Y")
+gridded(blank.grid)     <- TRUE  # Create SpatialPixel object
+fullgrid(blank.grid)    <- TRUE  # Create SpatialGrid object
+proj4string(blank.grid) <- proj4string(samp_pnts_utm)
 
 #start with IDW, power of 1
-idwmodel = gstat::idw(ndvi ~1, pnts_utm_nona,samp_pnts_utm, maxdist = Inf)#, idp = 2) 
-#add idw calculations to samp_pnts_utm
+#interpolated just to the sample points
+idwmodel = gstat::idw(ndvi ~1, pnts_utm_nona,samp_pnts_utm, maxdist = Inf)
+#interpolated to the random grid
+idwmodel_cont <- gstat::idw(ndvi ~ 1, pnts_utm_nona, newdata=blank.grid)
+idw_raster<- raster(idwmodel_cont)
+plot(idw_raster)
+
+
+#add idw prpedictions to samp_pnts_utm
 samp_pnts_utm$idw_ndvi<-idwmodel$var1.pred
-samp_idw_acc<-forecast::accuracy(samp_pnts_utm$ndvi,samp_pnts_utm$idw_ndvi)
+#evaluate error metrics
+samp_idw_acc<-forecast::accuracy(as.numeric(samp_pnts_utm$ndvi),as.numeric(samp_pnts_utm$idw_ndvi))
+#create a vector of those error metrics for plotting later
 plot_idw_acc<-samp_idw_acc[c(1:length(samp_idw_acc))]
+```
+The spatial interpolation produced from IDW. 
+
+```{r , echo = FALSE,cache=TRUE}
+###Now move to kriging....
 
 # calculates sample variogram values 
 vario <- variogram((ndvi)~1, pnts_utm_nona)
 
-#returns spherical??
-#try this one instead of autofit
+#computer determines "best" model fit
 test.fits<-fit.variogram(vario, vgm(c("Exp", "Mat", "Sph")))
 
-### need to tweak model fit, most likely?
-fit.vario <- fit.variogram(vario, model=vgm(fit.vario$psill[2], "Sph", fit.vario$range[2],fit.vario$psill[1]))#, 1)) # fit model
+#all parameters from this point are automated to accomodate rerunning code and slightly different models
+fit.vario <- fit.variogram(vario, model=vgm(test.fits$psill[2], "Sph", test.fits$range[2],test.fits$psill[1]))#, 1)) # fit model
 ### plot empirical vs. model
 plot(vario, fit.vario ,main = "ordinary kriging")
 
 #annotating the variogram....
-annotated_plot<-
-        plot(vario,model=fit.vario,lwd=2,col.line="black",pch=16,cex=0.5,ylim=c(0,.04),
-             xlim=c(0,4000),
-             main=list(
-                     "Spherical Semivariogram Model for NDVI Predictions",
-                     xlab=list("Distance between Point Pairs (m)"),cex=1 ),
-             ylab=list("Semivariance"),
-             scales=list(x=list(at=c(0,1000,2000,3000,4000),
-                                labels=c(0,1000,2000,3000,4000)),
-                         y=list(at=c(0,0.05,.01,.015,.02,.025,.03,.035,.04),
-                                #keep getting NA after last label
-                                labels=c(0,"",.015,"",.025,"",.035,"",.045)),cex=1),
-             key=
-                     list(text=list(lab=c("Spherical Model","Sill",
-                                          "Maximum Interpolation Distance")),
-                          space="top",lines=list(col=c("black","black","red"),
-                                                 lwd=2,lty=c(1,2,1)),columns=3,cex=.75))
+# annotated_plot<-
+#         plot(vario,model=fit.vario,lwd=2,col.line="black",pch=16,cex=0.5,ylim=c(0,.04),
+#              xlim=c(0,4000),
+#              main=list(
+#                      "Spherical Semivariogram Model for NDVI Predictions",
+#                      xlab=list("Distance between Point Pairs (m)"),cex=1 ),
+#              ylab=list("Semivariance"),
+#              scales=list(x=list(at=c(0,1000,2000,3000,4000),
+#                                 labels=c(0,1000,2000,3000,4000)),
+#                          y=list(at=c(0,0.05,.01,.015,.02,.025,.03,.035,.04),
+#                                 #keep getting NA after last label
+#                                 labels=c(0,"",.015,"",.025,"",.035,"",.045)),cex=1),
+#              key=
+#                      list(text=list(lab=c("Spherical Model","Sill",
+#                                           "Maximum Interpolation Distance")),
+#                           space="top",lines=list(col=c("black","black","red"),
+#                                                  lwd=2,lty=c(1,2,1)),columns=3,cex=.75))
 
 #use trellis so the plot doesn't close
 plot(annotated_plot)
 lattice::trellis.focus("panel",1,1)
-plot(annotated_plot)
-lattice::trellis.focus("panel",1,1)
-###should automate these lines to extract from the model values for plotting...
-llines(x=c(fit.vario$range[2],fit.vario$range[2]),y=c(0,fit.vario$psill[2]),col="red",lwd=2,lty=1)
-#llines(x=c(0,925),y=c(.035,.035),col="red",lwd=2,lty=1)
+###automated the plotting commands below to extract from the model values for plotting...
+llines(x=c(fit.vario$range[2],fit.vario$range[2]),y=c(0,.045),col="red",lwd=2,lty=1)
 llines(x=c(0,fit.vario$range[2]),y=c(fit.vario$psill[2]+fit.vario$psill[1],fit.vario$psill[2]+fit.vario$psill[1]),col="black",lty=2,lwd=2)
+#adds the text to the plots
 ltext(x=500,y=.005*.75,paste("Nugget ~",round(fit.vario$psill[1],3),sep=""),cex=.75)
 ltext(x=fit.vario$range[2]+50,y=.015,paste("Range ~",round(fit.vario$range[2],0),sep=""),cex=.75,srt=90)
 trellis.unfocus()
 
 
-#create blank grid 
+#create blank grid again
 blank.grid<-spsample(samp_pnts_utm,type="regular",n=10000)
 
 #write the kriging function
@@ -270,49 +313,83 @@ krig_ndvi <- predict(gs,blank.grid)
 #set to dataframe
 krig.output = as.data.frame(krig_ndvi)
 #assign column names
-names(krig.output)[1:3] <- c("x", "y", "prediction")
+names(krig.output)[1:4] <- c("x", "y", "prediction","var1.var")
 
+#assign to new object
 spg <- krig.output
 #confirm
 coordinates(spg) <- ~ x + y
 
-# coerce to SpatialPixelsDataFrame
+# coerce new object to SpatialPixelsDataFrame
 gridded(spg) <- TRUE
 # coerce to raster
-raster_krig <- raster(spg)
+raster_krig <- raster::stack(spg)
 
-# sets projection to British National Grid
+# sets projection to match all other CRS's
 projection(raster_krig) <- CRS(utm_proj)
 
-# we can quickly plot the raster to check its okay
+
 plot(raster_krig)
 
 #get krigged values @ 44 sample points
 krig_ndvi_atsamps<-raster::extract(raster_krig,samp_pnts_utm)
 #add them to the sample points df
 samp_pnts_utm$krig_ndvi<-krig_ndvi_atsamps
-
-samp_krig_acc<-forecast::accuracy(samp_pnts_utm$ndvi,samp_pnts_utm$krig_ndvi)
+#generate some error metrics
+samp_krig_acc<-forecast::accuracy(as.numeric(samp_pnts_utm$ndvi),as.numeric(samp_pnts_utm$krig_ndvi))
 
 
 plot_krig_acc<-samp_krig_acc[c(1:length(samp_krig_acc))]
 
-####Need to answer in more depth the last questions
 
 ```
 
-
-```{r, echo=FALSE}
-#error_names<-c("ME","RMSE","MAE","MPE","MAPE")
+  The sill, range, and nugget are the features of note in a variogram. The points plotted represent the empirically measured semivariance ~ distance (lag) relationship. These are discrete data, with the semivariance (y value) values calculated using 1/2 the difference squared of the z values for all pairs of points within a given distance and direction. Each empirical data point represents the difference in attribute values between the points and their distance apart. It follows that we expect points closer to x=0 to have more similar values, approaching some (hopefully) small value on the y-axis. The y-intercept, once a model is fit, is referred to as the nugget. For the NDVI image, the nuggest is very small at .002. The nugget, in practical terms, represents randomness in the system. In practice, it would be possible to have two points at .000001 (distance units apart) that have slightly different values. The value of the nugget is the expected, or possible, magnitude of difference between those close points. 
+  The empirical points in the variogram “appear” to have a fairly high positive slope, until a somewhat distinct value at a line x= ‘value’, and then the slope of the empirically plotted points levels off. This value of x (for the NDVI data is ~950); this point where the slope levels off is the range. The range represents the distance at which points are no longer spatially autocorrelated. The range for this dataset appears to be heavily influenced by the crop circle pattern, in which a mostly uniform size is used for the same crop, returning mostly homogenous spectral values within.Beyond a given crop circle, we do not expect autocorrelation.
+  The y-value that corresponds to the x=’range’ within the empirical points is the sill, which is ~ .035 for the NDVI raster. The sill represents the maximum variability in the point pattern (i.e. all points beneath the sill are positively autocorrelated, while points above the sill are negatively autocorrelated). When modeling the sill value, it should be confirmed that for much larger distances the empirical points do not return to consistently plotting beneath the sill. This can be indicative of autocorrelation at multiple scales and will cause poor model fits. 
+  The above describe the characteristics of discrete points in the variogram and the associated characteristics form model-fitting. To interpolate this information to a continuous spatial surface, it is necessary to fit a modeled equation to the empirical, discrete data. There are a number of models that can be used to fit variograms, but the purpose of the analysis and characteristics of the data can help indicate a better model. 
+ 
+```{r, echo=FALSE,fig.show='hold',fig.align='center'}
+###discuss what these mean
 plot(plot_idw_acc,col="blue",cex=2,ylab="Error Values",xaxt='n')
 mtext(text="ME                     RMSE                       MAE                    MPE                        MAPE",side=1,line=0,cex=1)     
 points(plot_krig_acc,col="red",pch=8)
 mtext(text="Error Metrics",side=1,line=2,cex=1)
-
-par(mfrow=c(1,2))
-####fit a slope line to these
-plot(samp_pnts_utm$idw_ndvi,samp_pnts_utm$ndvi)
-
-plot(samp_pnts_utm$krig_ndvi,samp_pnts_utm$ndvi)
-
 ```
+
+This plot shows 5 different error metrics for comparing the accuracy for IDW (blue) & Kriging (red). 
+
+ME: Mean Error
+
+RMSE: Root Mean Squared Error
+
+MAE: Mean Absolute Error
+
+MPE: Mean Percentage Error
+
+MAPE: Mean Absolute Percentage Error
+
+
+```{r, echo=FALSE,fig.show='hold',fig.align='center'}
+par(mfrow=c(1,2))
+####fit a slope line to these, report stats
+plot(samp_pnts_utm$idw_ndvi,samp_pnts_utm$ndvi)
+idw_lm<-lm(samp_pnts_utm$idw_ndvi~samp_pnts_utm$ndvi)
+abline(lm(samp_pnts_utm$ndvi~samp_pnts_utm$idw_ndvi))
+mtext(paste("R squared =", round(summary(idw_lm)$r.squared,4),sep=""), side=1, line=-2,cex=.75)
+par(mfrow=c(1,2))
+plot(as.numeric(samp_pnts_utm$krig_ndvi),as.numeric(samp_pnts_utm$ndvi))
+krig_lm<-lm(samp_pnts_utm$ndvi~samp_pnts_utm$krig_ndvi)
+abline(lm(samp_pnts_utm$ndvi~samp_pnts_utm$krig_ndvi))
+mtext(paste("R squared =", round(summary(krig_lm)$r.squared,4),sep=""), side=1, line=-2,cex=.75)
+```
+Plotted are the the linear model fits for Krigging (predicted vs. actual) & IDW (predicted vs. actual). Krigging indicates a slightly better linear fit. IDW appears to sligtly overpredict NDVI, meaning the residuals would lean slightly positive.
+
+```{r, echo=FALSE,fig.show='hold',fig.align='center'}
+par(mfrow=c(1,1))
+#could plot residuals to show slight over prediction...
+plot(raster_krig,"var1.var",main="Variance of Krigged Surface")
+plot(samp_pnts_utm,pch=3,cex=1,add=T)
+```
+Spatial representation of the variance for the krigged model. Plotting a continous variance is not possible with IDW, as it is a deterministic method, with no statistical inference or extrapolation. The predicted to actual relationships (show in the linear models) for both krigging and idw appear reasonable; although, the added knowledge gained from generating a variogram and the ability to adapt to more complex spatial patterns of autocorrelation makes krigging a decent option for this dataset. In a scenario with significantly fewer points where the empirical variogram would not provide enough data for a reasonable model fit, IDW can be an effective approach to rely on simple relationships to create at least a baseline for a spatially continuous surface.
+
